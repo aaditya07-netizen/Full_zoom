@@ -1,0 +1,1 @@
+export const JWT_SCREAT="123456";
