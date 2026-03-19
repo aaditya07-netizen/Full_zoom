@@ -1,0 +1,1 @@
+export const JWT_SECREAT=process.env.JWT_SCREAT || "1234567"
