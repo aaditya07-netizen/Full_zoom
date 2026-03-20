@@ -1,11 +1,16 @@
 import express from "express";
 import jwt from "jsonwebtoken";
+import  argon2  from "argon2";
 import { middleware } from "./middleware";
-const app=express();
-import {JWT_SECREAT} from "@repo/backend-common/config";
-import {CreateUserSchema,SigninSchema,CreateRoomSchema} from "@repo/common/z_validation"
 
-app.post("/signup",async(req,res)=>{
+import {JWT_SECREAT} from "@repo/backend-common/config";
+import {CreateUserSchema,SigninSchema,CreateRoomSchema} from "@repo/common/z_validation";
+
+import {prisma} from "@repo/prisma/db";
+
+const app=express();
+app.use(express.json()); 
+app.get("/signup", async(req, res) => {
     const parsedData=CreateUserSchema.safeParse(req.body);
     if(!parsedData.success){
         res.json({
@@ -13,16 +18,31 @@ app.post("/signup",async(req,res)=>{
         })
         return;
     }
-
-    res.json({
-        userId:123
-    })
-
-
+    try{
+        const hashedPassword=await argon2.hash(parsedData.data.password);
+        const user=await prisma.user.create({
+            data:{
+                email: parsedData.data.username,
+                password: hashedPassword,
+                name: parsedData.data.username
+            }
+        })
+        res.json({
+            userId: user.id
+        })
+    }catch(e){
+        res.status(411).json({
+            message: "Error signing up, exists"
+        })
+    }
 })
 
-app.post("/signin",async(req,res)=>{
 
+
+
+
+
+app.get("/signin", async(req, res) => {
     const parsedData=SigninSchema.safeParse(req.body);
     if(!parsedData.success){
         res.json({
@@ -30,19 +50,41 @@ app.post("/signin",async(req,res)=>{
         })
         return;
     }
+    try{
+        const user=await prisma.user.findFirst({
+            where:{
+                email: parsedData.data.username
+            }
+        })
+        if(!user){
+            res.status(401).json({
+                message: "User not found, invalid"
+            })
+            return
+        }
+        const isValidPassword=await argon2.verify(user.password, parsedData.data.password);
+        if(isValidPassword && user?.id){
 
-    const userId=1;
-    const token=jwt.sign({
-        userId
-    },JWT_SECREAT);
-
-    res.json({
-        token
-    })
+            const token=jwt.sign({
+                userId: user.id
+            }, JWT_SECREAT)
+            res.json({
+                token: token
+            })
+        }else{
+            res.status(401).json({
+                message : "Invalid credentials, password not correct"
+            })
+        }
+    }catch(e){
+        res.status(411).json({
+            message: "Unauthorization Error during signing in"
+        })
+    }
 })
 
 
-app.post("/room",middleware,async(req,res)=>{
+app.post("/room", middleware, async(req, res) => {
     const parsedData= CreateRoomSchema.safeParse(req.body)
     if(!parsedData.success){
         res.json({
@@ -50,12 +92,28 @@ app.post("/room",middleware,async(req,res)=>{
         })
         return;
     }
-
-    //db call
-
-    res.json({
-        roomId:123
-    })
-
+    //@ts-ignore
+    const userId=req.userId;
+    if(!userId){
+        res.status(403).json({
+            message : "Unauthorized"
+        })
+        return;
+    }
+    try{
+        const room = await prisma.room.create({
+            data:{
+                slug: parsedData.data.name,
+                adminId: userId
+            }
+        })
+        res.json({
+            roomId: room.id
+        })
+    }catch(e){
+        res.status(411).json({
+            message: "Room exits & Error creating Room"
+        })
+    }
 })
 app.listen(3002);
