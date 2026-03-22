@@ -5,10 +5,12 @@ import { middleware } from "./middleware";
 
 import {JWT_SECREAT} from "@repo/backend-common/config";
 import {CreateUserSchema,SigninSchema,CreateRoomSchema} from "@repo/common/z_validation";
+import cors from "cors";
 
 import {prisma} from "@repo/prisma/db";
 
 const app=express();
+app.use(cors())
 app.use(express.json()); 
 app.get("/signup", async(req, res) => {
     const parsedData=CreateUserSchema.safeParse(req.body);
@@ -116,4 +118,40 @@ app.post("/room", middleware, async(req, res) => {
         })
     }
 })
-app.listen(3002);
+
+app.get("/chats/:roomId", async(req, res)=>{
+    try{
+        const roomId=Number(req.params.roomId);
+        const messages=await prisma.chat.findMany({
+            where:{
+                roomId: roomId
+            },
+            orderBy:{
+                id: "desc"
+            },
+            take:50
+        })
+        res.json({
+            messages: messages
+        })
+    }catch(e){
+        res.status(411).json({
+            message:[]
+        })
+    }
+})  
+
+app.get("/room/:slug", async (req, res) => {
+    const slug = req.params.slug;
+    const room = await prisma.room.findFirst({
+        where: {
+            slug
+        }
+    });
+
+    res.json({
+        room
+    })
+})
+
+app.listen(3001);

@@ -1,6 +1,6 @@
 import {WebSocket, WebSocketServer} from 'ws';
 import {JWT_SECREAT} from "@repo/backend-common/config"
-const wss= new WebSocketServer({port:3001})
+const wss= new WebSocketServer({port:3002})
 import jwt from "jsonwebtoken";
 import {prisma} from "@repo/prisma/db"
 
@@ -62,7 +62,7 @@ wss.on('connection', function connection(ws, req){
             const message=parsedData.message;
             await prisma.chat.create({
                 data:{
-                    roomId,
+                    roomId: Number(roomId),
                     message,
                     userId
                 }
