@@ -119,11 +119,25 @@ app.get("/room/:slug", async (req: any, res: any) => {
     return res.json({ room });
 });
 
+async function resolveRoomId(roomId: string): Promise<number | null> {
+    const asNumber = Number(roomId);
+    if (Number.isInteger(asNumber) && String(asNumber) === roomId) {
+        return asNumber;
+    }
+
+    const room = await prisma.room.findUnique({ where: { slug: roomId } });
+    return room?.id ?? null;
+}
+
 // ─── Chats ───────────────────────────────────────────────────────────────────
 
 app.get("/chats/:roomId", async (req: any, res: any) => {
     try {
-        const roomId = Number(req.params.roomId);
+        const roomId = await resolveRoomId(req.params.roomId);
+        if (roomId === null) {
+            return res.json({ messages: [] });
+        }
+
         const messages = await prisma.chat.findMany({
             where: { roomId },
             orderBy: { id: "desc" },

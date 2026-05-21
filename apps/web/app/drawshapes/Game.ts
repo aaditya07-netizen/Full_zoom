@@ -58,7 +58,9 @@ export class Game {
     }
 
     async init() {
-        this.existingShapes = await getExistingShapes(this.roomId);
+        const liveShapes = this.existingShapes;
+        const savedShapes = await getExistingShapes(this.roomId);
+        this.existingShapes = [...savedShapes, ...liveShapes];
         console.log(this.existingShapes);
         this.clearCanvas();
     }
