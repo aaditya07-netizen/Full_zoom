@@ -83,6 +83,28 @@ wss.on('connection', function connection(ws, req) {
                     user.ws.send(JSON.stringify({ type: 'chat', message, roomId }));
                 }
             });
+            return;
+        }
+
+        if (parsedData.type === 'clear') {
+            const roomId: string = parsedData.roomId;
+            const numericRoomId = await resolveRoomId(roomId);
+
+            if (numericRoomId !== null) {
+                try {
+                    await prisma.chat.deleteMany({ where: { roomId: numericRoomId } });
+                } catch (e) {
+                    console.error('[ws] Failed to clear room:', e);
+                }
+            } else {
+                console.warn('[ws] Room not found for clear roomId:', roomId);
+            }
+
+            users.forEach(user => {
+                if (user.rooms.includes(roomId) && user.ws.readyState === WebSocket.OPEN) {
+                    user.ws.send(JSON.stringify({ type: 'clear', roomId }));
+                }
+            });
         }
     });
 
